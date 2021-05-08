@@ -19,6 +19,7 @@
 import logging
 import platform
 from collections import namedtuple
+from time import sleep
 from typing import List
 
 import serial
@@ -32,6 +33,7 @@ from NanoVNASaver.Hardware.NanoVNA_H import NanoVNA_H
 from NanoVNASaver.Hardware.NanoVNA_H4 import NanoVNA_H4
 from NanoVNASaver.Hardware.NanoVNA_V2 import NanoVNA_V2
 from NanoVNASaver.Hardware.Serial import drain_serial, Interface
+from NanoVNASaver.Hardware.MR100 import Mr100
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ USBDEVICETYPES = (
     USBDevice(0x0483, 0x5740, "NanoVNA"),
     USBDevice(0x16c0, 0x0483, "AVNA"),
     USBDevice(0x04b4, 0x0008, "S-A-A-2"),
+    USBDevice(0x0403, 0x6001, "MR100"),
 )
 RETRIES = 3
 TIMEOUT = 0.2
@@ -78,6 +81,9 @@ def get_VNA(iface: Interface) -> 'VNA':
     # serial_port.timeout = TIMEOUT
 
     logger.info("Finding correct VNA type...")
+    if iface.baudrate == 57600:
+        logger.info("Only MR100 has baudrate 57600")
+        return Mr100(iface)
     with iface.lock:
         vna_version = detect_version(iface)
 
@@ -89,21 +95,21 @@ def get_VNA(iface: Interface) -> 'VNA':
     tmp_vna = VNA(iface)
     tmp_vna.flushSerialBuffers()
     firmware = tmp_vna.readFirmware()
-    if firmware.find("AVNA + Teensy") > 0:
+    if firmware.find("AVNA + Teensy") >= 0:
         logger.info("Type: AVNA")
         return AVNA(iface)
-    if firmware.find("NanoVNA-H 4") > 0:
+    if firmware.find("NanoVNA-H 4") >= 0:
         logger.info("Type: NanoVNA-H4")
         vna = NanoVNA_H4(iface)
         return vna
-    if firmware.find("NanoVNA-H") > 0:
+    if firmware.find("NanoVNA-H") >= 0:
         logger.info("Type: NanoVNA-H")
         vna = NanoVNA_H(iface)
         return vna
-    if firmware.find("NanoVNA-F") > 0:
+    if firmware.find("NanoVNA-F") >= 0:
         logger.info("Type: NanoVNA-F")
         return NanoVNA_F(iface)
-    if firmware.find("NanoVNA") > 0:
+    if firmware.find("NanoVNA") >= 0:
         logger.info("Type: Generic NanoVNA")
         return NanoVNA(iface)
     logger.warning("Did not recognize NanoVNA type from firmware.")
@@ -115,6 +121,7 @@ def detect_version(serial_port: serial.Serial) -> str:
     for i in range(RETRIES):
         drain_serial(serial_port)
         serial_port.write("\r".encode("ascii"))
+        sleep(0.05)
         data = serial_port.read(128).decode("ascii")
         if data.startswith("ch> "):
             return "v1"
