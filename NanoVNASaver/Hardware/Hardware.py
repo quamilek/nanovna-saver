@@ -43,7 +43,9 @@ USBDEVICETYPES = (
     USBDevice(0x0483, 0x5740, "NanoVNA"),
     USBDevice(0x16c0, 0x0483, "AVNA"),
     USBDevice(0x04b4, 0x0008, "S-A-A-2"),
+    USBDevice(0x0483, 0x374B, "STLink")
 )
+
 RETRIES = 3
 TIMEOUT = 0.2
 WAIT = 0.05
